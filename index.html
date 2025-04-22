@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Aplikasi Stok Barang</title>
+    <style>
+      /* Styling untuk body dan halaman secara keseluruhan */
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f4f4f9;
+        margin: 0;
+        padding: 20px;
+      }
+
+      h1 {
+        color: #333;
+        text-align: center;
+      }
+
+      /* Styling untuk container utama */
+      .container {
+        max-width: 1000px;
+        margin: 0 auto;
+        background-color: white;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      }
+
+      /* Styling untuk form */
+      form {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        margin-bottom: 20px;
+      }
+
+      input[type="text"],
+      input[type="number"],
+      input[type="file"],
+      button {
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 16px;
+        width: 100%;
+      }
+
+      input[type="text"]:focus,
+      input[type="number"]:focus {
+        outline-color: #66cc66;
+      }
+
+      button {
+        background-color: #4caf50;
+        color: white;
+        cursor: pointer;
+        font-weight: bold;
+      }
+
+      button:hover {
+        background-color: #45a049;
+      }
+
+      /* Styling untuk tabel */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+      }
+
+      th,
+      td {
+        padding: 12px;
+        border: 1px solid #ddd;
+        text-align: center;
+        font-size: 14px;
+      }
+
+      th {
+        background-color: #4caf50;
+        color: white;
+      }
+
+      td {
+        background-color: #f9f9f9;
+      }
+
+      tr:nth-child(even) {
+        background-color: #f2f2f2;
+      }
+
+      tr:hover {
+        background-color: #e9e9e9;
+      }
+
+      .low-stock {
+        background-color: #ffcccc;
+      }
+
+      .actions button {
+        background-color: #f44336;
+        color: white;
+        border: none;
+        padding: 5px 10px;
+        cursor: pointer;
+        border-radius: 4px;
+      }
+
+      .actions button:hover {
+        background-color: #e53935;
+      }
+
+      .info {
+        margin: 20px 0;
+        font-size: 14px;
+        text-align: center;
+        color: #555;
+      }
+
+      .search-container {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 15px;
+      }
+
+      .search-container input[type="text"] {
+        width: 60%;
+      }
+
+      .file-input {
+        display: flex;
+        align-items: center;
+      }
+
+      /* Styling untuk tombol export */
+      .export-button {
+        display: block;
+        margin: 20px auto;
+        padding: 10px 20px;
+        background-color: #2196f3;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+      }
+
+      .export-button:hover {
+        background-color: #1976d2;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>STOCK TOKO ERAFONE ALAUDDIN</h1>
+    <div id="last-update">Terakhir diperbarui: -</div>
+    <input type="text" id="search-bar" placeholder="Cari material..." />
+    <input type="file" id="fileExcel" accept=".xlsx, .xls" />
+
+    <!-- Form untuk menambah barang -->
+    <form id="form-barang">
+      <input type="text" id="material" placeholder="Material" required />
+      <input
+        type="text"
+        id="description-barang"
+        placeholder="Deskripsi Barang"
+        required
+      />
+      <input
+        type="number"
+        id="jumlah-barang"
+        placeholder="Jumlah Barang"
+        required
+      />
+      <input type="number" id="stok-masuk" placeholder="Stok Masuk" />
+      <input type="number" id="stok-keluar" placeholder="Stok Keluar" />
+      <button type="submit">Tambah Barang</button>
+    </form>
+
+    <button onclick="exportCSV()">Export ke CSV</button>
+
+    <!-- Tabel untuk menampilkan data barang -->
+    <table>
+      <thead>
+        <tr>
+          <th>Material</th>
+          <th>Description</th>
+          <th>Stok Masuk</th>
+          <th>Stok Keluar</th>
+          <th>Total</th>
+          <th>Aksi</th>
+        </tr>
+      </thead>
+      <tbody id="tabel-barang"></tbody>
+    </table>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+    <script>
+      const form = document.getElementById("form-barang");
+      const material = document.getElementById("material");
+      const descriptionBarang = document.getElementById("description-barang");
+      const jumlahBarang = document.getElementById("jumlah-barang");
+      const stokMasuk = document.getElementById("stok-masuk");
+      const stokKeluar = document.getElementById("stok-keluar");
+      const tabelBarang = document.getElementById("tabel-barang");
+      const lastUpdate = document.getElementById("last-update");
+      const searchBar = document.getElementById("search-bar");
+      const fileExcel = document.getElementById("fileExcel");
+
+      let dataBarang = [];
+      let editingIndex = -1; // Menyimpan indeks data yang sedang diedit
+      let filteredData = [];
+
+      function updateTimestamp() {
+        const now = new Date();
+        lastUpdate.textContent = `Terakhir diperbarui: ${now.toLocaleString()}`;
+      }
+
+      function renderTabel(data) {
+        tabelBarang.innerHTML = ""; // Bersihkan tabel terlebih dahulu
+
+        if (data.length === 0) {
+          tabelBarang.innerHTML =
+            "<tr><td colspan='6'>Tidak ada data untuk ditampilkan.</td></tr>";
+        }
+
+        data.forEach((row, index) => {
+          const stockIn = parseInt(row.stokMasuk) || 0;
+          const stockOut = parseInt(row.stokKeluar) || 0;
+          const totalStock = (row.jumlah || 0) + stockIn - stockOut;
+
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+          <td>${row.material || "-"}</td>
+          <td>${row.description || "-"}</td>
+          <td>${stockIn}</td>
+          <td>${stockOut}</td>
+          <td>${totalStock}</td>
+          <td>
+            <button onclick="editBarang(${index})">Edit</button>
+            <button onclick="hapusBarang(${index})">Hapus</button>
+          </td>
+        `;
+          tabelBarang.appendChild(tr);
+        });
+      }
+
+      function simpanData() {
+        localStorage.setItem("dataBarang", JSON.stringify(dataBarang));
+        updateTimestamp();
+      }
+
+      function loadData() {
+        const data = localStorage.getItem("dataBarang");
+        if (data) {
+          dataBarang = JSON.parse(data);
+          filteredData = dataBarang;
+          renderTabel(filteredData);
+        }
+      }
+
+      function tambahBarang(e) {
+        e.preventDefault();
+        const materialValue = material.value;
+        const description = descriptionBarang.value;
+        const jumlah = parseInt(jumlahBarang.value);
+        const masuk = parseInt(stokMasuk.value) || 0;
+        const keluar = parseInt(stokKeluar.value) || 0;
+        if (keluar > jumlah + masuk) {
+          alert("Stok keluar tidak boleh lebih besar dari total stok.");
+          return;
+        }
+
+        if (editingIndex === -1) {
+          dataBarang.push({
+            material: materialValue,
+            description,
+            jumlah,
+            stokMasuk: masuk,
+            stokKeluar: keluar,
+          });
+        } else {
+          dataBarang[editingIndex] = {
+            material: materialValue,
+            description,
+            jumlah,
+            stokMasuk: masuk,
+            stokKeluar: keluar,
+          };
+          editingIndex = -1; // Reset index setelah edit
+        }
+
+        simpanData();
+        renderTabel(filteredData);
+        form.reset();
+      }
+
+      function hapusBarang(index) {
+        dataBarang.splice(index, 1);
+        simpanData();
+        renderTabel(filteredData);
+      }
+
+      function editBarang(index) {
+        const barang = filteredData[index];
+        material.value = barang.material;
+        descriptionBarang.value = barang.description;
+        jumlahBarang.value = barang.jumlah;
+        stokMasuk.value = barang.stokMasuk;
+        stokKeluar.value = barang.stokKeluar;
+        editingIndex = dataBarang.indexOf(filteredData[index]); // Menyimpan indeks barang yang diedit di dataBarang
+        form.onsubmit = (e) => {
+          // Override onsubmit untuk mengedit
+          e.preventDefault();
+          tambahBarang(e); // Panggil fungsi tambah barang untuk menyimpan perubahan
+        };
+      }
+
+      function exportCSV() {
+        let csv = "Material,Description,Stok Masuk,Stok Keluar,Total\n";
+        filteredData.forEach((barang) => {
+          const total = barang.jumlah + barang.stokMasuk - barang.stokKeluar;
+          csv += `${barang.material},${barang.description},${barang.stokMasuk},${barang.stokKeluar},${total}\n`;
+        });
+        const blob = new Blob([csv], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "stok_barang.csv";
+        a.click();
+      }
+
+      fileExcel.addEventListener("change", function (e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function (event) {
+          const data = new Uint8Array(event.target.result);
+          const workbook = XLSX.read(data, { type: "array" });
+
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          const json = XLSX.utils.sheet_to_json(sheet);
+
+          // Reset dataBarang untuk mengganti dengan data baru
+          dataBarang = [];
+
+          json.forEach((row) => {
+            const materialValue = row["Material"]?.trim();
+            const description = row["Description"] || "";
+            const stokMasuk = parseInt(row["Stok Masuk"]) || 0;
+            const stokKeluar = parseInt(row["Stok Keluar"]) || 0;
+
+            if (materialValue) {
+              dataBarang.push({
+                material: materialValue,
+                description,
+                jumlah: 0,
+                stokMasuk,
+                stokKeluar,
+              });
+            }
+          });
+
+          // Simpan data baru ke localStorage dan tampilkan tabel
+          simpanData();
+          filteredData = dataBarang; // Set filteredData ke dataBarang
+          renderTabel(filteredData);
+        };
+
+        reader.readAsArrayBuffer(file);
+      });
+
+      searchBar.addEventListener("input", function () {
+        const searchTerm = searchBar.value.toLowerCase();
+        filteredData = dataBarang.filter(
+          (item) =>
+            item.material?.toLowerCase().includes(searchTerm) ||
+            item.description?.toLowerCase().includes(searchTerm)
+        );
+        renderTabel(filteredData);
+      });
+
+      loadData();
+      updateTimestamp();
+      form.onsubmit = tambahBarang;
+    </script>
+  </body>
+</html>
