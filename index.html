@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>stock Toko Erafone Alauddin🤖</title>
+    <title>Stock Toko Erafone Alauddin🤖</title>
     <style>
       body {
         font-family: Arial, sans-serif;
@@ -86,11 +86,22 @@
       .export-button:hover {
         background-color: #1976d2;
       }
+
+      #search-input {
+        padding: 10px;
+        width: 100%;
+        margin-bottom: 20px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 16px;
+      }
     </style>
   </head>
   <body>
     <h1>STOCK TOKO ERAFONE ALAUDDIN (E909)🐯</h1>
     <div id="last-update">Terakhir diperbarui: -</div>
+
+    <input type="text" id="search-input" placeholder="Cari barang..." />
 
     <table>
       <thead>
@@ -115,17 +126,20 @@
       const sheetName = "Sheet1";
       const url = `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?tqx=out:json&sheet=${sheetName}`;
       const lastUpdate = document.getElementById("last-update");
+      const searchInput = document.getElementById("search-input");
+
+      let rowsData = [];
 
       fetch(url)
         .then((res) => res.text())
         .then((data) => {
           const json = JSON.parse(data.substr(47).slice(0, -2));
-          const rows = json.table.rows;
+          rowsData = json.table.rows;
 
           const tabelBarang = document.getElementById("tabel-barang");
           tabelBarang.innerHTML = "";
 
-          rows.forEach((row) => {
+          rowsData.forEach((row) => {
             const cells = row.c;
             const material = cells[0]?.v || "-";
             const description = cells[1]?.v || "-";
@@ -153,6 +167,40 @@
           document.getElementById("tabel-barang").innerHTML =
             "<tr><td colspan='6'>Gagal memuat data.</td></tr>";
         });
+
+      // Filter data berdasarkan input pencarian
+      searchInput.addEventListener("input", (e) => {
+        const searchTerm = e.target.value.toLowerCase();
+        const filteredRows = rowsData.filter((row) => {
+          const cells = row.c;
+          const material = cells[0]?.v || "";
+          const description = cells[1]?.v || "";
+          return material.toLowerCase().includes(searchTerm) || description.toLowerCase().includes(searchTerm);
+        });
+
+        const tabelBarang = document.getElementById("tabel-barang");
+        tabelBarang.innerHTML = "";
+
+        filteredRows.forEach((row) => {
+          const cells = row.c;
+          const material = cells[0]?.v || "-";
+          const description = cells[1]?.v || "-";
+          const stokMasuk = parseInt(cells[2]?.v || 0);
+          const stokKeluar = parseInt(cells[3]?.v || 0);
+          const total = stokMasuk - stokKeluar;
+
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${material}</td>
+            <td>${description}</td>
+            <td>${stokMasuk}</td>
+            <td>${stokKeluar}</td>
+            <td class="${total === 1 ? 'low-stock' : ''}">${total}</td>
+            <td>-</td>
+          `;
+          tabelBarang.appendChild(tr);
+        });
+      });
     </script>
   </body>
 </html>
