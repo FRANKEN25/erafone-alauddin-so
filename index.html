@@ -6,8 +6,8 @@
     <title>Stock Toko Erafone Alauddin🤖</title>
     <style>
       body {
-        font-family: Arial, sans-serif;
-        background-color: #f4f4f9;
+        font-family: 'Roboto', sans-serif;
+        background-color: #e9f7fd;
         margin: 0;
         padding: 20px;
       }
@@ -15,6 +15,7 @@
       h1 {
         color: #333;
         text-align: center;
+        margin-bottom: 20px;
       }
 
       .container {
@@ -23,18 +24,19 @@
         background-color: white;
         border-radius: 8px;
         padding: 20px;
-        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
       }
 
       input[type="text"],
       input[type="number"],
       input[type="file"],
       button {
-        padding: 10px;
+        padding: 12px;
         border: 1px solid #ddd;
         border-radius: 4px;
         font-size: 16px;
         width: 100%;
+        margin-bottom: 10px;
       }
 
       button {
@@ -42,6 +44,7 @@
         color: white;
         cursor: pointer;
         font-weight: bold;
+        transition: background-color 0.3s ease;
       }
 
       button:hover {
@@ -52,6 +55,9 @@
         width: 100%;
         border-collapse: collapse;
         margin-top: 20px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        overflow: hidden;
       }
 
       th,
@@ -68,7 +74,9 @@
       }
 
       .low-stock {
-        background-color: #ffcccc;
+        background-color: #ffeb3b;
+        color: #d32f2f;
+        font-weight: bold;
       }
 
       .export-button {
@@ -87,21 +95,26 @@
         background-color: #1976d2;
       }
 
-      #search-input {
-        padding: 10px;
+      #search-bar {
+        padding: 12px;
         width: 100%;
-        margin-bottom: 20px;
-        border: 1px solid #ddd;
         border-radius: 4px;
+        border: 1px solid #ddd;
         font-size: 16px;
+        margin-bottom: 20px;
+        margin-top: 10px;
       }
     </style>
   </head>
   <body>
     <h1>STOCK TOKO ERAFONE ALAUDDIN (E909)🐯</h1>
     <div id="last-update">Terakhir diperbarui: -</div>
-
-    <input type="text" id="search-input" placeholder="Cari barang..." />
+    <input
+      type="text"
+      id="search-bar"
+      placeholder="Cari barang..."
+      oninput="filterItems()"
+    />
 
     <table>
       <thead>
@@ -126,20 +139,37 @@
       const sheetName = "Sheet1";
       const url = `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?tqx=out:json&sheet=${sheetName}`;
       const lastUpdate = document.getElementById("last-update");
-      const searchInput = document.getElementById("search-input");
+      const tabelBarang = document.getElementById("tabel-barang");
+      const searchInput = document.getElementById("search-bar");
 
-      let rowsData = [];
+      function filterItems() {
+        const searchQuery = searchInput.value.toLowerCase();
+        const rows = tabelBarang.getElementsByTagName("tr");
+        for (let i = 0; i < rows.length; i++) {
+          const cells = rows[i].getElementsByTagName("td");
+          if (cells.length > 0) {
+            const material = cells[0].textContent.toLowerCase();
+            const description = cells[1].textContent.toLowerCase();
+            if (
+              material.includes(searchQuery) ||
+              description.includes(searchQuery)
+            ) {
+              rows[i].style.display = "";
+            } else {
+              rows[i].style.display = "none";
+            }
+          }
+        }
+      }
 
       fetch(url)
         .then((res) => res.text())
         .then((data) => {
           const json = JSON.parse(data.substr(47).slice(0, -2));
-          rowsData = json.table.rows;
-
-          const tabelBarang = document.getElementById("tabel-barang");
+          const rows = json.table.rows;
           tabelBarang.innerHTML = "";
 
-          rowsData.forEach((row) => {
+          rows.forEach((row) => {
             const cells = row.c;
             const material = cells[0]?.v || "-";
             const description = cells[1]?.v || "-";
@@ -159,48 +189,14 @@
             tabelBarang.appendChild(tr);
           });
 
+          // Update waktu terakhir diperbarui
           const now = new Date();
           lastUpdate.textContent = "Terakhir diperbarui: " + now.toLocaleString();
         })
         .catch((err) => {
           console.error("Gagal memuat data spreadsheet:", err);
-          document.getElementById("tabel-barang").innerHTML =
-            "<tr><td colspan='6'>Gagal memuat data.</td></tr>";
+          tabelBarang.innerHTML = "<tr><td colspan='6'>Gagal memuat data.</td></tr>";
         });
-
-      // Filter data berdasarkan input pencarian
-      searchInput.addEventListener("input", (e) => {
-        const searchTerm = e.target.value.toLowerCase();
-        const filteredRows = rowsData.filter((row) => {
-          const cells = row.c;
-          const material = cells[0]?.v || "";
-          const description = cells[1]?.v || "";
-          return material.toLowerCase().includes(searchTerm) || description.toLowerCase().includes(searchTerm);
-        });
-
-        const tabelBarang = document.getElementById("tabel-barang");
-        tabelBarang.innerHTML = "";
-
-        filteredRows.forEach((row) => {
-          const cells = row.c;
-          const material = cells[0]?.v || "-";
-          const description = cells[1]?.v || "-";
-          const stokMasuk = parseInt(cells[2]?.v || 0);
-          const stokKeluar = parseInt(cells[3]?.v || 0);
-          const total = stokMasuk - stokKeluar;
-
-          const tr = document.createElement("tr");
-          tr.innerHTML = `
-            <td>${material}</td>
-            <td>${description}</td>
-            <td>${stokMasuk}</td>
-            <td>${stokKeluar}</td>
-            <td class="${total === 1 ? 'low-stock' : ''}">${total}</td>
-            <td>-</td>
-          `;
-          tabelBarang.appendChild(tr);
-        });
-      });
     </script>
   </body>
 </html>
